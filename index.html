@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Interativo de Histologia</title>
+    <!-- Carrega o Tailwind CSS para estilização moderna e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuração do Tailwind para usar a fonte Inter e cores customizadas -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#10567A',
+                        'secondary-yellow': '#F4E0A5',
+                        'correct-green': '#10B981',
+                        'wrong-red': '#EF4444',
+                        'gray-bg': '#F7F7F7',
+                        'whatsapp-green': '#25D366',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Estilo customizado para botões de opção */
+        .option-button {
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+        .option-button:hover:not([disabled]) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(16, 86, 122, 0.2), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        }
+        /* Estilo para a barra de progresso */
+        .progress-bar {
+            transition: width 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans min-h-screen flex items-center justify-center p-4">
+
+    <!-- Container Principal do Quiz -->
+    <div id="quiz-container" class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 md:p-10 border-t-4 border-primary-blue">
+        <h1 class="text-3xl font-extrabold text-primary-blue mb-4 text-center">Histologia Quiz</h1>
+        <p class="text-center text-gray-500 mb-8">20 Questões sobre Métodos, Microscopia e Tecidos.</p>
+
+        <!-- Área de Progresso e Pergunta -->
+        <div id="quiz-area" class="space-y-6 hidden">
+            <!-- Progresso -->
+            <div class="mb-6">
+                <p id="progress-text" class="text-sm font-medium text-primary-blue mb-2"></p>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progress-bar" class="progress-bar bg-primary-blue h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Pergunta -->
+            <div class="bg-primary-blue/10 p-5 rounded-lg border-l-4 border-primary-blue">
+                <p id="question-text" class="text-lg font-semibold text-gray-800"></p>
+            </div>
+
+            <!-- Opções de Resposta -->
+            <div id="options-container" class="space-y-3">
+                <!-- Botões de opção serão injetados aqui -->
+            </div>
+
+            <!-- Botão de Próxima Pergunta -->
+            <div class="flex justify-end">
+                <button id="next-button" class="mt-4 px-6 py-2 bg-primary-blue text-white font-bold rounded-full hover:bg-primary-blue/90 transition-all shadow-md hidden" onclick="closeFeedback()">Próxima Pergunta &rarr;</button>
+            </div>
+        </div>
+
+        <!-- Tela de Resultado Final (Conteúdo dinâmico será injetado) -->
+        <div id="result-screen" class="text-center hidden p-8">
+            <!-- Conteúdo de resultado será gerado dinamicamente em showResults() -->
+        </div>
+
+        <!-- Feedback de Resposta -->
+        <div id="feedback-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onclick="closeFeedback()">
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4" onclick="event.stopPropagation()">
+                <h3 id="feedback-title" class="text-2xl font-bold"></h3>
+                <p id="feedback-explanation" class="text-gray-600 text-sm leading-relaxed whitespace-pre-line"></p>
+                <button class="w-full py-2 bg-primary-blue text-white font-bold rounded-lg hover:bg-primary-blue/90 transition-all" onclick="closeFeedback()">Continuar</button>
+            </div>
+        </div>
+
+        <!-- Tela Inicial e Cadastro (Inicialmente visível) -->
+        <div id="start-screen" class="text-center p-8">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-6">Cadastro do Aluno</h2>
+            <p class="text-gray-600 mb-6">Preencha seus dados para iniciar o teste de Histologia:</p>
+            
+            <div class="space-y-4 mb-8">
+                <input type="text" id="student-name" placeholder="Seu Nome Completo" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue transition-all" required>
+                <input type="text" id="student-id" placeholder="Matrícula ou Turma (Opcional)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue transition-all">
+                <p id="start-error-message" class="text-wrong-red text-sm font-medium hidden">O nome é obrigatório.</p>
+            </div>
+
+            <button class="px-8 py-3 bg-primary-blue text-white font-bold rounded-full text-xl hover:bg-primary-blue/90 transition-all shadow-lg" onclick="handleStart()">Iniciar Quiz</button>
+        </div>
+
+    </div>
+
+    <script>
+        const questions = [
+            // 1. Métodos Histológicos de Estudo (4 questões)
+            {
+                question: "Qual técnica histológica é essencial para permitir o corte de tecidos em fatias finas (micrômetros) pelo micrótomo?",
+                options: ["Fixação", "Coloração", "Clarificação (Diafanização)", "Inclusão"],
+                answer: "Inclusão",
+                explanation: "A inclusão, geralmente em parafina, fornece o suporte e a rigidez necessários para que o tecido possa ser cortado em secções finas para a microscopia."
+            },
+            {
+                question: "O formaldeído, o fixador mais comum, atua primariamente formando ligações cruzadas entre qual tipo de molécula no tecido?",
+                options: ["Lipídios", "Carboidratos", "Ácidos Nucleicos", "Proteínas"],
+                answer: "Proteínas",
+                explanation: "O formaldeído (formalina) reage com os grupos amino das proteínas, ligando-as entre si (cross-linking), o que preserva a estrutura celular e tecidual."
+            },
+            {
+                question: "Qual solvente é utilizado na etapa de clarificação (diafanização) para remover a parafina do tecido após o corte e antes da coloração?",
+                options: ["Álcool Etílico", "Água Destilada", "Éter", "Xilol ou Hemo-D"],
+                answer: "Xilol ou Hemo-D",
+                explanation: "O xilol é o solvente mais comum. Ele remove a parafina, sendo miscível com ela e com os corantes lipossolúveis (se usados). É uma etapa de 'desparafinagem'."
+            },
+            {
+                question: "Qual das seguintes etapas é reversível na preparação de lâminas histológicas?",
+                options: ["Fixação", "Desidratação", "Inclusão", "Montagem em lamínula"],
+                answer: "Desidratação",
+                explanation: "A desidratação (remoção da água por álcool) é seguida pela re-hidratação antes da coloração. As outras etapas, especialmente a fixação e inclusão, alteram o tecido permanentemente."
+            },
+            // 2. Coloração de Hematoxilina e Eosina (H.E.) (4 questões)
+            {
+                question: "Estruturas que são atraídas por corantes básicos (como a Hematoxilina) são chamadas de:",
+                options: ["Acidófilas", "Eosinófilas", "Neutrófilas", "Basófilas"],
+                answer: "Basófilas",
+                explanation: "Estruturas basófilas possuem carga negativa (ácidas), como o DNA e o RNA, por isso se ligam a corantes básicos (positivos), como a Hematoxilina (roxo/azul)."
+            },
+            {
+                question: "Qual estrutura celular se cora em tons de rosa-avermelhado (acidófila) pela Eosina devido à alta concentração de proteínas citoplasmáticas?",
+                options: ["O núcleo", "A cromatina", "O nucléolo", "O citoplasma"],
+                answer: "O citoplasma",
+                explanation: "A Eosina é um corante ácido (carga negativa) que se liga às proteínas citoplasmáticas (que possuem grupos amino carregados positivamente), tingindo o citoplasma de rosa."
+            },
+            {
+                question: "O colágeno, uma proteína fibrosa da matriz extracelular, é tipicamente corado de qual cor na coloração H.E.?",
+                options: ["Azul escuro", "Preto", "Verde", "Rosa forte ou vermelho claro"],
+                answer: "Rosa forte ou vermelho claro",
+                explanation: "O colágeno é acidófilo e se liga fortemente à Eosina, apresentando-se em tons de rosa a vermelho. É um marcador importante do tecido conjuntivo."
+            },
+            {
+                question: "Se uma célula está envolvida ativamente na síntese proteica (muito RNA ribossomal), como o citoplasma dessa célula aparecerá na coloração H.E.?",
+                options: ["Intensamente rosa (acidófilo)", "Transparente", "Com coloração mista", "Levemente azulado (basófilo)"],
+                answer: "Levemente azulado (basófilo)",
+                explanation: "O RNA ribossomal é um ácido nucleico (basófilo) e atrai a Hematoxilina. O citoplasma de células secretoras ativas apresenta-se, portanto, basófilo."
+            },
+            // 3. Partes de um Microscópio de Luz (3 questões)
+            {
+                question: "Qual componente do microscópio é responsável por conter as lentes que fornecem o aumento final da imagem, além de ser o local onde o observador coloca os olhos?",
+                options: ["Objetivas", "Platina", "Condensador", "Oculares"],
+                answer: "Oculares",
+                explanation: "As oculares são as lentes mais próximas dos olhos e, juntamente com as objetivas, determinam o aumento total. Elas geralmente têm um aumento de 10x."
+            },
+            {
+                question: "Para se obter uma imagem de $1000\text{x}$ em um microscópio de luz, qual é a objetiva necessária se a ocular for de $10\text{x}$?",
+                options: ["$40\text{x}$", "$60\text{x}$", "$100\text{x}$", "$50\text{x}$"],
+                answer: "$100\text{x}$",
+                explanation: "O aumento total ($1000\text{x}$) é o produto do aumento da ocular ($10\text{x}$) pela objetiva. Portanto, $1000 / 10 = 100\text{x}$."
+            },
+            {
+                question: "O ajuste fino (micrométrico) no microscópio é utilizado para qual finalidade?",
+                options: ["Ajustar a intensidade da luz.", "Mudar a objetiva.", "Mover a lâmina.", "Obter a nitidez final da imagem."],
+                answer: "Obter a nitidez final da imagem.",
+                explanation: "O ajuste macrométrico é para a focalização inicial, e o ajuste micrométrico move a platina em pequenos incrementos para garantir a máxima nitidez."
+            },
+            // 4. Histologia do Tecido Epitelial de Revestimento (4 questões)
+            {
+                question: "Qual característica é fundamental para a definição do tecido epitelial?",
+                options: ["Ser ricamente vascularizado.", "Possuir grande quantidade de matriz extracelular.", "Ter células muito separadas.", "Ser avascular e possuir alta coesão celular."],
+                answer: "Ser avascular e possuir alta coesão celular.",
+                explanation: "Epitélios não possuem vasos sanguíneos (avasculares), dependendo do tecido conjuntivo subjacente para nutrição. A alta coesão é dada pelos complexos juncionais."
+            },
+            {
+                question: "O epitélio do tipo 'simples pavimentoso' é encontrado em locais onde a principal função é:",
+                options: ["Proteção contra atrito.", "Secreção e absorção ativa.", "Movimentação de fluidos.", "Troca gasosa e filtração rápida."],
+                answer: "Troca gasosa e filtração rápida.",
+                explanation: "Por ser uma única camada de células achatadas, ele minimiza a barreira de difusão, sendo ideal para alvéolos pulmonares (troca gasosa) e endotélio (filtração)."
+            },
+            {
+                question: "Qual modificação de superfície celular é característica do epitélio de revestimento do intestino delgado, aumentando drasticamente a área de absorção?",
+                options: ["Cílios", "Flagelos", "Junções comunicantes", "Microvilosidades"],
+                answer: "Microvilosidades",
+                explanation: "As microvilosidades formam a 'borda em escova' no intestino e aumentam em até 20 vezes a área de contato para absorção de nutrientes."
+            },
+            {
+                question: "O Urotélio (epitélio de transição) é especial por qual motivo?",
+                options: ["Possuir glândulas unicelulares.", "Ser o único epitélio com três camadas.", "Conter queratina na superfície.", "Adaptar-se à distensão da bexiga."],
+                answer: "Adaptar-se à distensão da bexiga.",
+                explanation: "O Urotélio é o epitélio que reveste a bexiga. Ele pode mudar de espessura e aparência (de estratificado para menos estratificado) conforme a bexiga se enche e esvazia."
+            },
+            // 5. Histologia do Tecido Conjuntivo Propriamente Dito (TCPD) e Componente Celular (5 questões)
+            {
+                question: "A célula mais numerosa e residente no TCPD, encarregada da produção da matriz extracelular, é:",
+                options: ["Plasmócito", "Macrófago", "Fibroblasto", "Linfócito"],
+                answer: "Fibroblasto",
+                explanation: "Fibroblastos são as principais células do conjuntivo, sintetizando fibras de colágeno, elastina e a substância fundamental. Quando inativos, são chamados de fibrócitos."
+            },
+            {
+                question: "Qual célula do tecido conjuntivo é uma célula de defesa especializada na produção de anticorpos?",
+                options: ["Mastócito", "Macrófago", "Adipócito", "Plasmócito"],
+                answer: "Plasmócito",
+                explanation: "Os Plasmócitos se diferenciam a partir dos linfócitos B e são responsáveis pela síntese e secreção de anticorpos (imunoglobulinas)."
+            },
+            {
+                question: "No Tecido Conjuntivo, qual célula libera mediadores pró-inflamatórios (como histamina) de seus grânulos, sendo crucial em processos alérgicos?",
+                options: ["Fibroblasto", "Macrófago", "Mastócito", "Célula Endotelial"],
+                answer: "Mastócito",
+                explanation: "O mastócito tem grânulos que liberam histamina e outros mediadores na presença de alérgenos, causando reações imediatas de hipersensibilidade (alergia)."
+            },
+            {
+                question: "O tecido conjuntivo frouxo é primariamente encontrado em qual localização, devido à sua função de preenchimento e suporte a epitélios?",
+                options: ["Tendões e ligamentos.", "Derme profunda.", "Sob o epitélio (lâmina própria) e ao redor de vasos.", "Cápsulas de órgãos."],
+                answer: "Sob o epitélio (lâmina própria) e ao redor de vasos.",
+                explanation: "O conjuntivo frouxo é rico em células e substância fundamental, oferecendo suporte flexível e servindo como primeiro local de defesa sob os epitélios."
+            },
+            {
+                question: "Qual é o nome da principal fibra proteica, resistente à tração, encontrada em abundância no Tecido Conjuntivo Denso?",
+                options: ["Fibras Elásticas", "Fibras Musculares", "Fibras Reticulares", "Fibras Colágenas"],
+                answer: "Fibras Colágenas",
+                explanation: "As Fibras Colágenas (principalmente tipo I) são o componente estrutural que confere alta resistência à tração, sendo a base do conjuntivo denso."
+            }
+        ];
+
+        // VARIÁVEIS DE ESTADO
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let isQuestionAnswered = false;
+        let studentName = ''; 
+        let studentId = '';   
+
+        // REFERÊNCIAS DOM
+        const quizArea = document.getElementById('quiz-area');
+        const startScreen = document.getElementById('start-screen');
+        const resultScreen = document.getElementById('result-screen');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const progressText = document.getElementById('progress-text');
+        const progressBar = document.getElementById('progress-bar');
+        const nextButton = document.getElementById('next-button');
+        const feedbackModal = document.getElementById('feedback-modal');
+        const feedbackTitle = document.getElementById('feedback-title');
+        const feedbackExplanation = document.getElementById('feedback-explanation');
+        const startErrorMessage = document.getElementById('start-error-message');
+
+
+        // Funções para manipulação do Quiz
+        
+        // Função para validar e capturar o nome do aluno
+        function handleStart() {
+            const nameInput = document.getElementById('student-name').value.trim();
+            const idInput = document.getElementById('student-id').value.trim();
+
+            if (!nameInput) {
+                startErrorMessage.classList.remove('hidden');
+                return;
+            }
+            
+            startErrorMessage.classList.add('hidden');
+            studentName = nameInput;
+            studentId = idInput;
+            startQuiz();
+        }
+
+        // Função para iniciar o quiz (depois de capturar os dados do aluno)
+        function startQuiz() {
+            currentQuestionIndex = 0;
+            score = 0;
+            startScreen.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+            quizArea.classList.remove('hidden');
+            loadQuestion();
+        }
+
+        // Função para carregar a questão atual
+        function loadQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                showResults();
+                return;
+            }
+
+            const currentQuestion = questions[currentQuestionIndex];
+            
+            // Atualiza progresso
+            const progress = (currentQuestionIndex / questions.length) * 100;
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `Progresso: Questão ${currentQuestionIndex + 1} de ${questions.length}`;
+
+            // Reset UI
+            optionsContainer.innerHTML = '';
+            questionText.textContent = currentQuestion.question;
+            nextButton.classList.add('hidden');
+            isQuestionAnswered = false;
+
+            // Cria os botões de opção
+            currentQuestion.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.textContent = option;
+                // Adicionado 'data-index' para evitar quebra no teclado/touch, mas a lógica de resposta está no clique
+                button.className = 'option-button w-full text-left p-4 rounded-lg bg-gray-50 border border-gray-200 text-gray-700 font-medium transition-colors duration-200';
+                button.onclick = () => checkAnswer(option, button, currentQuestion.answer, currentQuestion.explanation);
+                optionsContainer.appendChild(button);
+            });
+        }
+
+        // Função para verificar a resposta
+        function checkAnswer(selectedOption, button, correctAnswer, explanation) {
+            if (isQuestionAnswered) return; // Impede múltiplos cliques
+            isQuestionAnswered = true;
+
+            const buttons = optionsContainer.querySelectorAll('button');
+            buttons.forEach(btn => btn.disabled = true); // Desabilita todos os botões para garantir que não haja retroação
+
+            let isCorrect = selectedOption === correctAnswer;
+
+            // Aplica estilo de feedback no botão
+            button.classList.remove('bg-gray-50', 'border-gray-200', 'hover:bg-primary-blue/10');
+            button.classList.add('font-bold');
+
+            if (isCorrect) {
+                button.classList.add('bg-correct-green', 'text-white');
+                score++;
+                feedbackTitle.textContent = '✅ Correto!';
+                feedbackTitle.classList.remove('text-wrong-red');
+                feedbackTitle.classList.add('text-correct-green');
+            } else {
+                button.classList.add('bg-wrong-red', 'text-white');
+                feedbackTitle.textContent = '❌ Errado!';
+                feedbackTitle.classList.remove('text-correct-green');
+                feedbackTitle.classList.add('text-wrong-red');
+                
+                // Destaca a resposta correta
+                buttons.forEach(btn => {
+                    if (btn.textContent === correctAnswer) {
+                        btn.classList.add('border-2', 'border-correct-green', 'bg-correct-green/10', 'text-correct-green');
+                    }
+                });
+            }
+
+            // Exibe o feedback modal
+            feedbackExplanation.textContent = `A resposta correta é: ${correctAnswer}.\nDetalhes: ${explanation}`;
+            feedbackModal.classList.remove('hidden');
+
+            nextButton.classList.remove('hidden');
+        }
+
+        // Função para fechar o modal e ir para a próxima pergunta
+        function closeFeedback() {
+            feedbackModal.classList.add('hidden');
+            nextQuestion();
+        }
+
+        // Função para avançar para a próxima pergunta
+        function nextQuestion() {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        // Função para gerar o link do WhatsApp
+        function sendWhatsappResult(score, percentage, finalConcept) {
+            // Número do professor (formato internacional: 55 + DDD + Telefone)
+            const professorNumber = "5584994420139"; 
+
+            let message = `*Resultado do Quiz de Histologia*\n\n`;
+            message += `👤 *Aluno(a):* ${studentName}\n`;
+            if (studentId) {
+                message += `🏷️ *Matrícula/Turma:* ${studentId}\n`;
+            }
+            message += `\n📊 *Pontuação:* ${score}/${questions.length}\n`;
+            message += `🎯 *Acertos (%):* ${percentage.toFixed(1)}%\n`;
+            message += `⭐ *Nota Final:* ${finalConcept}\n\n`;
+            message += `O quiz foi concluído e o resultado está anexado.`;
+
+            const encodedMessage = encodeURIComponent(message);
+            const whatsappUrl = `https://api.whatsapp.com/send?phone=${professorNumber}&text=${encodedMessage}`;
+            
+            // Abre o link em uma nova janela/aba
+            window.open(whatsappUrl, '_blank');
+        }
+
+        // Função para mostrar os resultados
+        function showResults() {
+            const finalProgress = (questions.length / questions.length) * 100;
+            progressBar.style.width = `${finalProgress}%`;
+            progressText.textContent = `Progresso: ${questions.length} de ${questions.length} (Fim)`;
+            
+            // Cálculo da nota final
+            const percentage = (score / questions.length) * 100;
+            
+            let finalConcept = '';
+            let gradeColor = 'text-correct-green'; // Default para Excelente
+
+            if (percentage >= 90) {
+                finalConcept = 'Excelente (A)';
+            } else if (percentage >= 70) {
+                finalConcept = 'Muito Bom (B)';
+                gradeColor = 'text-primary-blue';
+            } else if (percentage >= 50) {
+                finalConcept = 'Regular (C)';
+                gradeColor = 'text-secondary-yellow';
+            } else {
+                finalConcept = 'Insuficiente (D)';
+                gradeColor = 'text-wrong-red';
+            }
+            
+            // Conteúdo dinâmico da tela de resultados
+            const studentIdDisplay = studentId ? `<p class="text-md text-gray-500 mb-6">Matrícula/Turma: ${studentId}</p>` : '';
+
+            resultScreen.innerHTML = `
+                <h2 class="text-4xl font-extrabold text-primary-blue mb-4">Quiz Concluído! 🎉</h2>
+                <p class="text-xl text-gray-800 mb-1 font-semibold">Aluno(a): ${studentName}</p>
+                ${studentIdDisplay}
+                <p class="text-xl text-gray-700 mb-4">Sua pontuação é:</p>
+                <p id="final-score-value" class="text-6xl font-black ${gradeColor} mb-2">${score}/${questions.length}</p>
+                <p class="text-3xl font-bold ${gradeColor} mb-8">Nota Final: ${finalConcept} (${percentage.toFixed(1)}%)</p>
+                
+                <p class="text-sm text-gray-500 mb-4">Envie o resultado para o professor. Após o envio, você não poderá fazer o quiz novamente.</p>
+
+                <button class="px-8 py-3 bg-whatsapp-green text-white font-bold rounded-full hover:bg-whatsapp-green/90 transition-all shadow-lg flex items-center justify-center mx-auto" onclick="sendWhatsappResult(${score}, ${percentage}, '${finalConcept}')">
+                    <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12.04 2c-5.54 0-10 4.49-10 10.03 0 1.77.46 3.44 1.35 4.9l-.92 3.4 3.55-.95c1.45.8 3.1 1.25 4.96 1.25 5.54 0 10-4.49 10-10.03S17.58 2 12.04 2zm5.02 14.8c-.28.14-.6.2-.9.2s-.65-.05-.97-.18c-.48-.2-.84-.52-1.22-.92-.6-.62-1.3-1.6-1.57-2.13-.27-.52-.3-.72-.5-1.02-.12-.2-.23-.27-.4-.27h-.08c-.2 0-.47.07-.72.33-.25.26-.53.58-.68.74-.15.15-.3.34-.48.47-.18.13-.38.2-.58.2s-.43-.07-.63-.2c-.19-.13-.57-.5-.95-1.07-.38-.58-.6-1.16-.76-1.42-.16-.27-.37-.5-.47-.7-.1-.18-.15-.36-.05-.53.1-.17.26-.3.4-.4.14-.1.3-.2.43-.3.13-.1.25-.17.38-.27.13-.1.2-.2.24-.26.04-.05.07-.12.07-.22 0-.1-.02-.2-.04-.3-.04-.15-.22-.52-.3-1.02-.07-.5-.14-.85-.14-1.02 0-.17.07-.3.18-.4.1-.1.2-.18.33-.28.12-.1.24-.16.38-.22.13-.06.26-.07.38-.07h.18c.24 0 .38.1.5.3.12.2.3.4.4.56.1.16.2.3.26.4.07.1.1.2.14.3.04.1.05.2.05.3 0 .1-.05.2-.14.3s-.2.2-.36.37c-.16.17-.3.35-.4.57s-.18.5-.18.8c0 .24.05.4.15.54.1.14.23.23.38.3.15.07.3.1.4.1.13 0 .27-.05.4-.1s.27-.17.4-.3c.12-.13.25-.27.38-.4.13-.13.27-.26.4-.37.28-.2.62-.36 1.05-.36.43 0 .78.16 1.05.36s.4.5.5.94c.1.44.1.88.02 1.3-.07.42-.23.8-.4 1.15z"/>
+                    </svg>
+                    Enviar Resultado
+                </button>
+            `;
+            
+            quizArea.classList.add('hidden');
+            resultScreen.classList.remove('hidden');
+        }
+
+        // Inicializa o aplicativo
+        window.onload = () => {
+             // Exibe a tela de início/cadastro por padrão.
+        };
+
+    </script>
+</body>
+</html>
